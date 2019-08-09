@@ -6,8 +6,7 @@ Vue.use(Vuex);
 
 export default new Vuex.Store({
   state: {
-    fridge: [],
-    pantry: [],
+    pantry: []
   },
   mutations: {
     load(state) {
@@ -15,6 +14,9 @@ export default new Vuex.Store({
           this.replaceState(
               Object.assign(state, JSON.parse(ApplicationSettings.getString("store")))
           );
+          state.pantry.forEach(function(item) {
+            item.expiry = new Date(item.expiry);
+          });
       }
     },
 
@@ -25,8 +27,10 @@ export default new Vuex.Store({
     
     removeFromPantry(state, data) {
       const index = state.pantry.indexOf(data);
-      state.pantry.splice(index, 1);
-      ApplicationSettings.setString("store", JSON.stringify(state));
+      if (index >= -1) {
+        state.pantry.splice(index, 1);
+        ApplicationSettings.setString("store", JSON.stringify(state));
+      }
     }
   },
   actions: {

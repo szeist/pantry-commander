@@ -1,14 +1,29 @@
 <template>
     <Page>
         <ActionBar title="Pantry Commander" android:flat="true" />
-        <TabView>
+        <TabView selectedIndex="1">
+            <TabViewItem title="Expiring">
+                <ListView row="0" for="item in expiringItems">
+                    <v-template>
+                        <GridLayout columns="*, 50">
+                            <GridLayout col="0" rows="*, 30">
+                                <Label row="0" :text="item.name" />
+                                <Label row="1" :text="item.expiry" />
+                            </GridLayout>
+                        </GridLayout>
+                    </v-template>
+                </ListView>
+            </TabViewItem>
             <TabViewItem title="Pantry">
                 <GridLayout rows="*, 50">
                     <ListView row="0" for="item in pantry">
                         <v-template>
                             <GridLayout columns="*, 50">
-                                <Label col="0" :text="item.name" />
-                                <Button col="1" text="Del" @tap="deleteFromPantry" />
+                                <GridLayout col="0" rows="*, 30">
+                                    <Label row="0" :text="item.name" />
+                                    <Label row="1" :text="item.expiry" />
+                                </GridLayout>
+                                <Button col="1" text="Del" @tap="deleteButtonTap" />
                             </GridLayout>
                         </v-template>
                     </ListView>
@@ -17,7 +32,10 @@
             </TabViewItem>
             <TabViewItem title="Recipes">
                 <GridLayout rows="50, *">
-                    <Button row="0" text="Get recipes" @tap="fetchRecipes" />
+                    <GridLayout row="0" columns="auto, auto">
+                        <Button col="0" text="from pantry" @tap="fromPantryTap" />
+                        <Button col="1" text="from expiring" @tap="fromExpiringTap" />
+                    </GridLayout>
                     <ListView row="1" for="recipe in recipes" @itemTap="onRecipeTap">
                         <v-template>
                             <GridLayout columns="50, *">
@@ -59,6 +77,22 @@
         }
     }
 
+    async function createRecipes(ingredients) {
+        const url = 'https://api.spoonacular.com/recipes/findByIngredients';
+        const ingredientsQuery = encodeURIComponent((ingredients.map((item) => item.name)).join(","));
+        const apiKey = await getApiKey();
+
+        const recipes: any = await getJSON(url + '?ingredients=' + ingredientsQuery + '&apiKey=' + apiKey);
+        return recipes.map(function(recipe) {
+            const slug = recipe.title
+                .toLowerCase()
+                .replace(/ /g,'-')
+                .replace(/[^\w-]+/g,'');
+            const link = 'https://spoonacular.com/' + slug + '-' + recipe.id
+            return { id: recipe.id, name: recipe.title, image: recipe.image, link: link };
+        });
+    }
+
     export default {
         data() {
             return {
@@ -76,43 +110,48 @@
         },
 
         methods: {
-            addToPantry: function() {
-                const store = this.$store;
-                dialogs.prompt({
-                    title: "New Pantry Item",
-                    okButtonText: "Add",
+            addToPantry: async function() {
+                const nameResult = await dialogs.prompt({
+                    title: "Item Name",
+                    okButtonText: "Next",
                     cancelButtonText: "Cancel"
-                }).then(function(result) {
-                    if (result.result && result.text.trim() !==
-                        "") {
-                        store.commit("addToPantry", {name: result.text})
-                    }
+                });
+                if (!nameResult.result || nameResult.text.trim() === "") {
+                    return;
+                }
+                const name = nameResult.text.trim();
+
+                const expiryResult = await dialogs.prompt({
+                    title: "Item Expiry",
+                    okButtonText: "Next",
+                    cancelButtonText: "Cancel"
+                });
+                if (!expiryResult.result || expiryResult.text.trim() === "") {
+                    return;
+                }
+                const expiry = new Date(expiryResult.text);
+
+                this.$store.commit("addToPantry", {name, expiry})
+            },
+
+            deleteButtonTap: function(args) {
+                this.$store.commit("removeFromPantry", args.object.bindingContext);
+            },
+
+            fromPantryTap: async function() {
+                const recipes = await createRecipes(this.pantry);
+                this.recipes.splice(0, this.recipes.length);
+                recipes.forEach(function(item) {
+                    this.recipes.push(item);
                 }, this);
             },
 
-            deleteFromPantry: function(item) {
-                this.$store.commit("removeFromPantry", item);
-            },
-
-            fetchRecipes: async function() {
-                const url = 'https://api.spoonacular.com/recipes/findByIngredients';
-                const ingredients = encodeURIComponent((this.pantry.map((item) => item.name)).join(","));
-                const apiKey = await getApiKey();
-
-                const recipes = this.recipes;
-                getJSON(url + '?ingredients=' + ingredients + '&apiKey=' + apiKey).then((r: any) => {
-                    recipes.splice(0, recipes.length);
-                    r.forEach(function(recipe) {
-                        const slug = recipe.title
-                            .toLowerCase()
-                            .replace(/ /g,'-')
-                            .replace(/[^\w-]+/g,'');
-                        const link = 'https://spoonacular.com/' + slug + '-' + recipe.id
-                        recipes.push(({ id: recipe.id, name: recipe.title, image: recipe.image, link: link }));
-                    }); 
-                    }, (e) => {
-                        dialogs.alert(e.message);
-                });
+            fromExpiringTap: async function() {
+                const recipes = await createRecipes(this.expiringItems);
+                this.recipes.splice(0, this.recipes.length);
+                recipes.forEach(function(item) {
+                    this.recipes.push(item);
+                }, this);
             },
 
             onRecipeTap: async function(args) {
@@ -124,6 +163,17 @@
                     utils.openUrl(r.sourceUrl);
                 }, (e) => {
                     dialogs.alert(e.message);
+                });
+            }
+        },
+
+        computed: {
+            expiringItems: function() {
+                const expiryInterval = 5;
+                const deadline = new Date();
+                deadline.setDate(deadline.getDate() + expiryInterval);
+                return this.pantry.filter(function(item) {
+                    return item.expiry <= deadline;
                 });
             }
         }
