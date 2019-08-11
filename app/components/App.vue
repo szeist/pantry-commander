@@ -40,7 +40,7 @@
                         <v-template>
                             <GridLayout columns="50, *">
                                 <Image col="0" :src="recipe.image" stretch="aspectFill" />
-                                <Label col="1" :text="recipe.name" />
+                                <Label col="1" :text="recipe.title" />
                             </GridLayout>
                         </v-template>
                     </ListView>
@@ -51,10 +51,10 @@
 </template>
 
 <script lang="ts">
-    import * as dialogs from "tns-core-modules/ui/dialogs";
-    import { request, getJSON } from "tns-core-modules/http";
-    import * as utils from "tns-core-modules/utils/utils";
+    import * as dialogs from 'tns-core-modules/ui/dialogs';
+    import * as utils from 'tns-core-modules/utils/utils';
     import { SecureStorage } from 'nativescript-secure-storage';
+    import { SpoonacularApi } from '../spoonacular';
 
     const secureStorage = new SecureStorage();
 
@@ -78,19 +78,9 @@
     }
 
     async function createRecipes(ingredients) {
-        const url = 'https://api.spoonacular.com/recipes/findByIngredients';
-        const ingredientsQuery = encodeURIComponent((ingredients.map((item) => item.name)).join(","));
         const apiKey = await getApiKey();
-
-        const recipes: any = await getJSON(url + '?ingredients=' + ingredientsQuery + '&apiKey=' + apiKey);
-        return recipes.map(function(recipe) {
-            const slug = recipe.title
-                .toLowerCase()
-                .replace(/ /g,'-')
-                .replace(/[^\w-]+/g,'');
-            const link = 'https://spoonacular.com/' + slug + '-' + recipe.id
-            return { id: recipe.id, name: recipe.title, image: recipe.image, link: link };
-        });
+        const api = new SpoonacularApi(apiKey);
+        return api.getRecipesFor(ingredients.map((i) => i.name));
     }
 
     export default {
@@ -155,15 +145,11 @@
             },
 
             onRecipeTap: async function(args) {
-                const recipe = args.item;
-                const url = 'https://api.spoonacular.com/recipes/' + recipe.id + '/information';
+                const recipe: Spoonacular.Recipe = args.item;
                 const apiKey = await getApiKey();
-                const recipes = this.recipes;
-                getJSON(url + '?apiKey=' + apiKey).then((r: any) => {
-                    utils.openUrl(r.sourceUrl);
-                }, (e) => {
-                    dialogs.alert(e.message);
-                });
+                const api = new SpoonacularApi(apiKey);
+                const recipeInfo = await api.getRecipeInfo(recipe.id);
+                utils.openUrl(recipeInfo.sourceUrl);
             }
         },
 
