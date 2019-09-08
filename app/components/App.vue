@@ -44,99 +44,100 @@
       const result = await dialogs.prompt({
         title: "API Key",
         okButtonText: "Save",
-           cancelButtonText: "Cancel"
-            });
+        cancelButtonText: "Cancel"
+      });
 
-            if (result.result && result.text.trim() !== "") {
-                secureStorage.setSync({key: 'apiKey', value: result.text});
-            }
-            return result.text;
+      if (result.result && result.text.trim() !== "") {
+        secureStorage.setSync({key: 'apiKey', value: result.text});
+      }
+
+      return result.text;
+    }
+  }
+
+  async function createRecipes(ingredients) {
+    const apiKey = await getApiKey();
+    const api = new SpoonacularApi(apiKey);
+    return api.getRecipesFor(ingredients.map((i) => i.name));
+  }
+
+  export default {
+    components: {
+      PantryList,
+      RecipeList
+    },
+
+    data() {
+      return {
+        pantry: [],
+        recipes: [],
+      }
+    },
+
+    mounted() {
+      this.$store.subscribe((mutations, state) => {
+        this.pantry = state.pantry;
+      });
+      this.$store.commit("load");
+    },
+
+    methods: {
+      addToPantry: async function() {
+        const nameResult = await dialogs.prompt({
+          title: "Item Name",
+          okButtonText: "Next",
+          cancelButtonText: "Cancel"
+        });
+        if (!nameResult.result || nameResult.text.trim() === "") {
+          return;
         }
-    }
+        const name = nameResult.text.trim();
 
-    async function createRecipes(ingredients) {
-        const apiKey = await getApiKey();
-        const api = new SpoonacularApi(apiKey);
-        return api.getRecipesFor(ingredients.map((i) => i.name));
-    }
-
-    export default {
-        components: {
-            PantryList,
-            RecipeList
-        },
-
-        data() {
-            return {
-                pantry: [],
-                recipes: [],
-            }
-        },
-
-        mounted() {
-            this.$store.subscribe((mutations, state) => {
-                this.pantry = state.pantry;
-            });
-            this.$store.commit("load");
-        },
-
-        methods: {
-            addToPantry: async function() {
-                const nameResult = await dialogs.prompt({
-                    title: "Item Name",
-                    okButtonText: "Next",
-                    cancelButtonText: "Cancel"
-                });
-                if (!nameResult.result || nameResult.text.trim() === "") {
-                    return;
-                }
-                const name = nameResult.text.trim();
-
-                const expiryResult = await dialogs.prompt({
-                    title: "Item Expiry",
-                    okButtonText: "Next",
-                    cancelButtonText: "Cancel"
-                });
-                if (!expiryResult.result || expiryResult.text.trim() === "") {
-                    return;
-                }
-                const expiry = new Date(expiryResult.text);
-
-                this.$store.commit("addToPantry", {name, expiry})
-            },
-
-            deleteButtonTap: function(args) {
-                this.$store.commit("removeFromPantry", args.object.bindingContext);
-            },
-
-            fromPantryTap: async function() {
-                const recipes = await createRecipes(this.pantry);
-                this.recipes.splice(0, this.recipes.length);
-                recipes.forEach(function(item) {
-                    this.recipes.push(item);
-                }, this);
-            },
-
-            fromExpiringTap: async function() {
-                const recipes = await createRecipes(this.expiringItems);
-                this.recipes.splice(0, this.recipes.length);
-                recipes.forEach(function(item) {
-                    this.recipes.push(item);
-                }, this);
-            }
-        },
-
-        computed: {
-            expiringItems: function() {
-                const expiryInterval = 5;
-                const deadline = new Date();
-                deadline.setDate(deadline.getDate() + expiryInterval);
-                return this.pantry.filter(function(item) {
-                    return item.expiry <= deadline;
-                });
-            }
+        const expiryResult = await dialogs.prompt({
+          title: "Item Expiry",
+          okButtonText: "Next",
+          cancelButtonText: "Cancel"
+        });
+        if (!expiryResult.result || expiryResult.text.trim() === "") {
+          return;
         }
+        const expiry = new Date(expiryResult.text);
+
+        this.$store.commit("addToPantry", {name, expiry})
+      },
+
+      deleteButtonTap: function(args) {
+        this.$store.commit("removeFromPantry", args.object.bindingContext);
+      },
+
+      fromPantryTap: async function() {
+        const recipes = await createRecipes(this.pantry);
+        this.recipes.splice(0, this.recipes.length);
+        recipes.forEach(function(item) {
+          this.recipes.push(item);
+        }, this);
+      },
+
+      fromExpiringTap: async function() {
+        const recipes = await createRecipes(this.expiringItems);
+        this.recipes.splice(0, this.recipes.length);
+        recipes.forEach(function(item) {
+          this.recipes.push(item);
+        }, this);
+      }
+    },
+
+    computed: {
+      expiringItems: function() {
+        const expiryInterval = 5;
+        const deadline = new Date();
+        deadline.setDate(deadline.getDate() + expiryInterval);
+        return this.pantry.filter(function(item) {
+          return item.expiry <= deadline;
+        });
+      }
     }
+  }
 </script>
 
 <style scoped>
