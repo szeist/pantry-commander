@@ -54,7 +54,7 @@
     import * as dialogs from 'tns-core-modules/ui/dialogs';
     import * as utils from 'tns-core-modules/utils/utils';
     import { SecureStorage } from 'nativescript-secure-storage';
-    import { SpoonacularApi } from '../spoonacular';
+    import { SpoonacularApi } from '../lib/spoonacular';
 
     const secureStorage = new SecureStorage();
 

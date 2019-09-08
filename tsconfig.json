@@ -13,8 +13,11 @@
     "paths": {
       "@/*": [
         "app/*"
+      ],
+      "*": [
+        "/node_modules/tns-core-modules/*"
       ]
-     },                           /* A series of entries which re-map imports to lookup locations relative to the 'baseUrl'. */
+    },                           /* A series of entries which re-map imports to lookup locations relative to the 'baseUrl'. */
     "typeRoots": [
       "types"
     ],                       /* List of folders to include type definitions from. */
